@@ -41,9 +41,6 @@ from sklearn.metrics import (
     precision_recall_curve,
 )
 from sklearn.dummy import DummyClassifier
-from sklearn.metrics._plot.precision_recall_curve import (
-    plot_precision_recall_curve,
-)
 from sklearn.model_selection import KFold, train_test_split
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -77,7 +74,10 @@ def get_fingerprint_as_bit_counts(
     # Ensure molecules has hydrogens added for consistency.
     mol = AllChem.AddHs(mol)
     fp = AllChem.GetMorganFingerprintAsBitVect(
-        mol=mol, radius=radius, nBits=nbits, bitInfo=info,
+        mol=mol,
+        radius=radius,
+        nBits=nbits,
+        bitInfo=info,
     )
     fp = list(fp)
     for bit, activators in info.items():
@@ -100,9 +100,7 @@ class MPScore:
         random_state=32,
         processes=-1,
         param_path=str(
-            Path(__file__)
-            .parents[0]
-            .joinpath("hyperparameters/optimal_params.json")
+            Path(__file__).parents[0].joinpath("hyperparameters/optimal_params.json")
         ),
     ):
         """Initialise the MPScore.
@@ -138,9 +136,7 @@ class MPScore:
     def restore(
         self,
         model_path=str(
-            Path(__file__)
-            .parents[1]
-            .joinpath("models/mpscore_calibrated.joblib")
+            Path(__file__).parents[1].joinpath("models/mpscore_calibrated.joblib")
         ),
     ):
         print(f"Restoring parameters from {model_path}")
@@ -221,9 +217,7 @@ class MPScore:
             av = np.mean(results[metric])
             std = np.std(results[metric])
             print(f"Score: {metric}     Average: {av}      Std: {std}")
-        print(
-            f"Confusion: {confusion_matrix(y_test_combined, predictions_combined)}"
-        )
+        print(f"Confusion: {confusion_matrix(y_test_combined, predictions_combined)}")
         print(f"Total Predictions: {len(y_test_combined)}")
         print(f"Total False Positives: {fps}")
         print(f"Total False Negatives: {fns}")
@@ -235,9 +229,7 @@ class MPScore:
         results["TPs"] = tps
         return results
 
-    def train_using_entire_dataset(
-        self, data: pd.DataFrame, calibrate=True
-    ) -> None:
+    def train_using_entire_dataset(self, data: pd.DataFrame, calibrate=True) -> None:
         """Trains the model on the entire dataset.
 
         Args:
@@ -252,13 +244,9 @@ class MPScore:
             f"There are {len(y)-sum(y)} labelled as unsynthesisable (which has a value of 0)"
         )
         if calibrate:
-            X_train, X_calib, y_train, y_calib = train_test_split(
-                X, y, random_state=32
-            )
+            X_train, X_calib, y_train, y_calib = train_test_split(X, y, random_state=32)
             self.model.fit(X_train, y_train)
-            clf = CalibratedClassifierCV(
-                self.model, cv="prefit", method="sigmoid"
-            )
+            clf = CalibratedClassifierCV(self.model, cv="prefit", method="sigmoid")
             clf.fit(X_calib, y_calib)
             print("Finished training calibrated model on entire dataset")
             self.calibrated_model = clf
@@ -343,20 +331,21 @@ class MPScore:
         self.model.fit(X_model_train, y_model_train)
         predicted_probs = [
             self.model.predict_proba(np.array(fp).reshape(1, -1))[0][1]
-            for fp in tqdm(
-                X_test, desc="Uncalibrated random forest predictions"
-            )
+            for fp in tqdm(X_test, desc="Uncalibrated random forest predictions")
         ]
         prob_true, prob_pred = calibration_curve(
-            y_prob=predicted_probs, y_true=y_test, n_bins=10, normalize=False,
+            y_prob=predicted_probs,
+            y_true=y_test,
+            n_bins=10,
+            normalize=False,
         )
-        sns.lineplot(
-            y=prob_pred, x=prob_true, ci=None, ax=ax, label="Random Forest"
-        )
+        sns.lineplot(y=prob_pred, x=prob_true, ci=None, ax=ax, label="Random Forest")
 
         # Sigmoid calibration
         sigmoid_clf = CalibratedClassifierCV(
-            self.model, cv="prefit", method="sigmoid",
+            self.model,
+            cv="prefit",
+            method="sigmoid",
         )
         # Fit calibrated model on validation set
         sigmoid_clf.fit(X_valid, y_valid)
@@ -365,7 +354,10 @@ class MPScore:
             for i in tqdm(X_test, desc="Sigmoid random forest predictions")
         ]
         prob_true, prob_pred = calibration_curve(
-            y_prob=sigmoid_pred, y_true=y_test, n_bins=10, normalize=False,
+            y_prob=sigmoid_pred,
+            y_true=y_test,
+            n_bins=10,
+            normalize=False,
         )
         sns.lineplot(
             y=prob_pred,
@@ -386,7 +378,10 @@ class MPScore:
             for fp in tqdm(X_test, desc="Isotonic random forest predictions")
         ]
         prob_true, prob_pred = calibration_curve(
-            y_prob=isotonic_pred, y_true=y_test, n_bins=10, normalize=False,
+            y_prob=isotonic_pred,
+            y_true=y_test,
+            n_bins=10,
+            normalize=False,
         )
         sns.lineplot(
             y=prob_pred,
@@ -396,9 +391,7 @@ class MPScore:
             label="Random Forest + Isotonic",
         )
 
-        sns.lineplot(
-            y=[0, 1], x=[0, 1], label="Perfect Classifier", color="black"
-        )
+        sns.lineplot(y=[0, 1], x=[0, 1], label="Perfect Classifier", color="black")
         ax.lines[3].set_linestyle("--")
         sns.despine()
         ax.set_xlabel("Mean Predicted Value")
@@ -439,9 +432,7 @@ class MPScore:
 
     def plot_precision_recall_curve(self, fig, ax, data):
         # MPScore precision-recall data
-        pr_data = self.get_precision_recall_curve_data(
-            data, model=copy(self.model)
-        )
+        pr_data = self.get_precision_recall_curve_data(data, model=copy(self.model))
         mpscore_color = list(sns.color_palette())[3]
         ax.errorbar(
             np.mean(pr_data["Recall"], axis=0),
@@ -530,7 +521,9 @@ class MPScore:
         # Remove the errorbars
         handles = [h[0] for h in handles]
         ax.legend(
-            handles, labels, loc="lower left",
+            handles,
+            labels,
+            loc="lower left",
         )
         ax.add_artist(circ)
         ax.set_xlabel("Recall", labelpad=20, fontsize="medium")
@@ -551,9 +544,7 @@ class MPScore:
         fp_stdevs = list(
             sorted(
                 importances_stdev,
-                key=lambda x: fp_importances[
-                    str(list(importances_stdev).index(x))
-                ],
+                key=lambda x: fp_importances[str(list(importances_stdev).index(x))],
                 reverse=True,
             )
         )
@@ -584,23 +575,17 @@ class MPScore:
 
     def plot_figure_5(self, data):
         fig, axes = plt.subplots(1, 2, figsize=(6.43420506434205, 3.3))
-        fig, axes[1] = self.plot_precision_recall_curve(
-            fig, axes[1], data=data
-        )
+        fig, axes[1] = self.plot_precision_recall_curve(fig, axes[1], data=data)
         axes[0] = self.plot_feature_importances(axes[0])
         print("Saving figure.")
         fig.savefig(Path(__file__).parents[1].joinpath("images/Figure_5.pdf"))
 
 
 def main():
-    data_path = (
-        Path(__file__).joinpath(Path("../data/chemist_scores.json")).resolve()
-    )
+    data_path = Path(__file__).joinpath(Path("../data/chemist_scores.json")).resolve()
     training_data = MPScore().load_data(str(data_path))
     param_path = (
-        Path(__file__)
-        .parents[0]
-        .joinpath(Path("hyperparameters/optimal_params.json"))
+        Path(__file__).parents[0].joinpath(Path("hyperparameters/optimal_params.json"))
     )
     model = MPScore(param_path=param_path)
     training_mols = [Chem.MolFromInchi(i) for i in training_data["inchi"]]
@@ -620,9 +605,7 @@ def main():
 
 
 def invert_calibrated_prob(prob, calibrated_model):
-    sigmoid_classifier = calibrated_model.calibrated_classifiers_[
-        0
-    ].calibrators[0]
+    sigmoid_classifier = calibrated_model.calibrated_classifiers_[0].calibrators[0]
     a = sigmoid_classifier.a_
     b = sigmoid_classifier.b_
     return (log((1 - prob) / prob) - b) / a
